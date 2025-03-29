@@ -6,6 +6,12 @@ All notable changes to this project will be documented in this file.
 
 ### ⚙️ Miscellaneous Tasks
 
+- Update pyproject.toml with license and metadata
+
+## [1.0.0] - 2025-03-29
+
+### ⚙️ Miscellaneous Tasks
+
 - Initialize minifetch project with basic files
 - Update dependencies and add configuration files
 - Simplify justfile by removing error handling
