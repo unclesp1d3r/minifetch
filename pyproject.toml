@@ -3,6 +3,20 @@ name = "minifetch"
 version = "0.1.0"
 description = "minifetch delivers bite-sized system stats at startup, for those who prefer their uptime with a side of nerdy flair"
 readme = "README.md"
+license = { file = "LICENSE" }
+keywords = ["system", "stats", "uptime", "fetch"]
+authors = [{ name = "UncleSp1d3r", email = "unclespider@protonmail.com" }]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Natural Language :: English",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Operating System :: POSIX",
+]
 requires-python = ">=3.11"
 dependencies = [
     "humanize>=4.12.2",
