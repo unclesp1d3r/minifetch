@@ -1,6 +1,4 @@
-# Stop execution on errors
-set -e
-
+# Justfile for managing the development workflow of the minifetch project
 # Define the default shell for commands
 set shell := ["bash", "-cu"]
 
