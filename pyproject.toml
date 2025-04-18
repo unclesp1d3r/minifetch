@@ -36,6 +36,7 @@ dev = [
     "ruff>=0.11.2",
     "tox-uv>=1.25.0",
     "twine>=6.1.0",
+    "types-psutil>=7.0.0.20250401",
     "uv>=0.6.10",
 ]
 
@@ -99,6 +100,7 @@ ignore = [
     "TC002",  # too many false positives from my own code
     "TD002",
     "TD003",
+    "EM101",  # stupid rule
     "EXE002",
 ]
 

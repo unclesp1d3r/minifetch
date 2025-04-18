@@ -3,16 +3,17 @@
 
 import platform
 import socket
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 import humanize
 import psutil
 import typer
-from psutil._common import bytes2human
-from pyfiglet import Figlet
+from humanize import naturalsize
+from pyfiglet import Figlet  # type: ignore[import-untyped]
 from rich import style
 from rich.bar import Bar
-from rich.console import Console
+from rich.console import Console, Group
+from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
@@ -35,6 +36,10 @@ THRESHOLD_YELLOW = 80
 
 
 def color_from_percent(percent: float) -> str:
+    """
+    Determines a color based on the given percentage value.
+
+    """
     if percent < THRESHOLD_GREEN:
         return "green"
     if percent < THRESHOLD_YELLOW:
@@ -43,31 +48,111 @@ def color_from_percent(percent: float) -> str:
 
 
 def style_from_percent(percent: float) -> style.Style:
+    """
+    Generates a style object based on the given percentage.
+    """
     return style.Style(color=color_from_percent(percent), bold=True)
 
 
 def style_from_value(value: float, total: float) -> style.Style:
+    """
+    Calculate the percentage of a given value relative to a total
+    and determine the corresponding style based on that percentage.
+    """
+    if total == 0:
+        raise ZeroDivisionError("Total cannot be zero.")
     percent = value / total * 100
     return style_from_percent(percent)
 
 
 def color_from_value(value: float, total: float) -> str:
+    """
+    Determines a color representation based on the proportion of a value
+    relative to a total.
+
+    """
     percent = value / total * 100
     return color_from_percent(percent)
 
 
 def show_hostname() -> None:
+    """
+    Displays the hostname of the current machine in a stylized ASCII art format.
+    """
     host_name: str = socket.gethostname()
     f = Figlet(font="slant")
     console.print(f.renderText(f"{host_name}"))
 
 
 def show_os() -> None:
+    """
+    Displays the operating system information including the name, version,
+    and architecture in a formatted manner using the console.
+
+    """
     os_name: str = platform.system()
     os_version: str = platform.release()
     os_arch: str = platform.machine()
     os_info: str = f"{os_name} {os_version} ({os_arch})"
     console.print(Text("OS:\t", style=header_style), os_info)
+    console.print()
+
+
+def show_logged_in_user() -> None:
+    """
+    Displays information about logged-in users.
+    If multiple users are logged in, it shows a table with their details.
+    """
+    users = psutil.users()
+    if not users:
+        console.print("No users logged in.")
+        return
+    if len(users) > 1:
+        table = Table(
+            title=Text("Logged In Users", style=header_style),
+        )
+        table.add_column("User", justify="left")
+        table.add_column("Terminal", justify="left")
+        table.add_column("Host", justify="left")
+        table.add_column("Duration", justify="left")
+        for user in users:
+            user_name: str | None = user.name
+            user_terminal: str | None = user.terminal
+            user_host: str | None = user.host
+            started_text: str = ""
+            if user.started is not None:
+                started = datetime.fromtimestamp(
+                    user.started, tz=UTC
+                ).astimezone()  # Convert to local time
+                started_text = humanize.naturaltime(
+                    datetime.now().astimezone() - started
+                )
+            table.add_row(
+                user_name or "",
+                user_terminal or "",
+                user_host or "",
+                started_text,
+            )
+        console.print(table)
+    else:
+        user = users[0]
+        user_name = user.name
+        user_terminal = user.terminal
+        user_host = user.host
+        started_text = ""
+        if user.started is not None:
+            started = datetime.fromtimestamp(
+                user.started, tz=UTC
+            ).astimezone()  # Convert to local time
+            started_text = humanize.naturaltime(datetime.now().astimezone() - started)
+        console.print(
+            Text("Logged In User:\n", style=header_style),
+            (
+                f"{user_name} on {user_terminal} from {user_host} for {started_text}"
+                if user_host
+                else f"{user_name} on {user_terminal or 'console'} for {started_text}"
+            ),
+        )
     console.print()
 
 
@@ -99,6 +184,8 @@ def show_cpu() -> None:
     console.print(table)
 
     console.print()
+    if platform.system() == "Windows":
+        return
     table = Table(
         show_header=False,
         box=None,
@@ -131,10 +218,11 @@ def show_memory() -> None:
     vmem = psutil.virtual_memory()
     smem = psutil.swap_memory()
 
-    vmem_used = bytes2human(vmem.used)
-    vmem_total = bytes2human(vmem.total)
-    smem_used = bytes2human(smem.used)
-    smem_total = bytes2human(smem.total)
+    vmem_used = naturalsize(vmem.used)
+    vmem_total = naturalsize(vmem.total)
+    smem_used = naturalsize(smem.used)
+    smem_total = naturalsize(smem.total)
+
     table = Table(
         show_header=False,
         box=None,
@@ -166,9 +254,19 @@ def show_memory() -> None:
         ),
         f"{smem.percent:.1f}%",
     )
-    console.print(table)
-    console.print(f"RAM: {vmem_used} / {vmem_total}")
-    console.print(f"Swap: {smem_used} / {smem_total}" if smem.total else "")
+
+    memory_panel = Panel(
+        Group(
+            table,
+            Text(f"RAM: {vmem_used} / {vmem_total}"),
+            Text(f"Swap: {smem_used} / {smem_total}" if smem.total else ""),
+        ),
+        title="Memory",
+        border_style="white",
+        padding=(0, 1),
+        expand=False,
+    )
+    console.print(memory_panel)
     console.print()
 
 
@@ -207,9 +305,11 @@ def show_disk() -> None:
                 width=50,
                 color=color_from_percent(partition_usage.percent),
             ),
-            f"{bytes2human(partition_usage.used)} / {bytes2human(partition_usage.total)}",
+            f"{naturalsize(partition_usage.used)} / {naturalsize(partition_usage.total)}",
         )
-    console.print(table)
+    console.print(
+        Panel(table, title="Disk", border_style="white", padding=(0, 1), expand=False)
+    )
     console.print()
 
 
@@ -263,17 +363,19 @@ def show_network_statistics() -> None:
             continue
         table.add_row(
             nic,
-            bytes2human(stats.bytes_sent),
-            bytes2human(stats.bytes_recv),
+            naturalsize(stats.bytes_sent),
+            naturalsize(stats.bytes_recv),
         )
     console.print(table)
 
 
 def show_temperatures() -> None:
     if not hasattr(psutil, "sensors_temperatures"):
+        console.print("Temperature sensors are not supported on this system.")
         return
     temps = psutil.sensors_temperatures()
     if not temps:
+        console.print("No temperature data available.")
         return
 
     table = Table(
@@ -304,6 +406,7 @@ def show_temperatures() -> None:
 def main() -> None:
     show_hostname()
     show_os()
+    show_logged_in_user()
     show_uptime()
     show_cpu()
     show_memory()
@@ -314,4 +417,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    app()
